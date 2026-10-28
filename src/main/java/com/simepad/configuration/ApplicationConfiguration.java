@@ -4,8 +4,11 @@ import com.simepad.adapter.out.persistence.postgres.PostgresObservationRepositor
 import com.simepad.application.service.RecordObservationService;
 import com.simepad.application.service.CollectEnvironmentalDataService;
 import com.simepad.adapter.out.openmeteo.OpenMeteoProvider;
+import com.simepad.adapter.out.openmeteo.OpenMeteoMarineProvider;
 import com.simepad.domain.port.in.CollectEnvironmentalDataUseCase;
+import com.simepad.domain.port.in.CollectMarineDataUseCase;
 import com.simepad.domain.port.out.EnvironmentalDataProvider;
+import com.simepad.application.service.CollectMarineDataService;
 import com.simepad.domain.port.in.RecordObservationUseCase;
 import com.simepad.domain.port.out.ObservationRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -46,13 +49,35 @@ public class ApplicationConfiguration {
     }
 
     @Bean
+    WebClient openMeteoMarineWebClient(WebClient.Builder builder,
+                                       org.springframework.core.env.Environment environment) {
+        return builder.baseUrl(environment.getProperty(
+                "simepad.datasources.open-meteo-marine.base-url", "https://marine-api.open-meteo.com/v1/marine")).build();
+    }
+
+    @Bean
     EnvironmentalDataProvider environmentalDataProvider(WebClient openMeteoWebClient) {
         return new OpenMeteoProvider(openMeteoWebClient);
     }
 
     @Bean
     CollectEnvironmentalDataUseCase collectEnvironmentalDataUseCase(
-            EnvironmentalDataProvider provider, RecordObservationUseCase recordObservation) {
+            @org.springframework.beans.factory.annotation.Qualifier("environmentalDataProvider")
+            EnvironmentalDataProvider provider,
+            RecordObservationUseCase recordObservation) {
         return new CollectEnvironmentalDataService(provider, recordObservation);
+    }
+
+    @Bean("marineEnvironmentalDataProvider")
+    EnvironmentalDataProvider marineEnvironmentalDataProvider(WebClient openMeteoMarineWebClient) {
+        return new OpenMeteoMarineProvider(openMeteoMarineWebClient);
+    }
+
+    @Bean
+    CollectMarineDataUseCase collectMarineDataUseCase(
+            @org.springframework.beans.factory.annotation.Qualifier("marineEnvironmentalDataProvider")
+            EnvironmentalDataProvider provider,
+            RecordObservationUseCase recordObservation) {
+        return new CollectMarineDataService(provider, recordObservation);
     }
 }
